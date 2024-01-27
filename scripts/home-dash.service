@@ -1,0 +1,16 @@
+[Unit]
+Description=Home Dashboard API
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/home/pi/source/home-dash/pi.env
+ExecStart=uvicorn main:app --host 0.0.0.0
+WorkingDirectory=/home/pi/source/home-dash/
+StandardOutput=inherit
+StandardError=inherit
+User=root
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
