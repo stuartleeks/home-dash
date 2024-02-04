@@ -1,4 +1,5 @@
 from dataclasses import asdict, dataclass, is_dataclass
+from datetime import datetime
 from io import BytesIO
 import json
 import logging
@@ -66,9 +67,11 @@ class LeafData:
     is_plugged_in: bool
     is_charging: bool
 
+
 @dataclass
 class DashboardData:
-    leaf : LeafData
+    leaf: LeafData
+    date_string: str = datetime.now().strftime("%A, %d %B %Y")
 
 
 def get_dashboard_data():
@@ -76,16 +79,18 @@ def get_dashboard_data():
 
     dashboard_data = DashboardData(
         LeafData(
-            estimated_range = leaf_summary["estimated_range"],
-            is_plugged_in= leaf_summary["is_connected"],
-            is_charging=  leaf_summary["charging_status"] != "NOT_CHARGING"
+            estimated_range=leaf_summary["estimated_range"],
+            is_plugged_in=leaf_summary["is_connected"],
+            is_charging=leaf_summary["charging_status"] != "NOT_CHARGING",
         )
     )
-    
+
     return dashboard_data
+
 
 def yes_no(value: bool):
     return "Yes" if value else "No"
+
 
 @app.get("/dashboard-image")
 def get_dashboard_image(request: Request):
@@ -108,15 +113,23 @@ def get_dashboard_image(request: Request):
 
     title = "Leeks Dashboard"
     title_width = draw.textlength(title, font=heading_font)
-    title_x = (image.width - title_width) / 2
-    draw.text((title_x, 10), "Leeks Dashboard", fill=(0, 0, 0), font=heading_font)
+    title_x = (image.width / 2 - title_width) / 2
+    draw.text((title_x, 10), title, fill=(0, 0, 0), font=heading_font)
+
+    date_text = dashboard_data.date_string
+    date_width = draw.textlength(date_text, font=heading_font)
+    date_x = image.width - date_width - 10
+    draw.text((date_x, 10), date_text, fill=(0, 0, 0), font=heading_font)
 
     leaf_range = dashboard_data.leaf.estimated_range
     draw.text(
         (10, 40), f"Range: {leaf_range:.0f} miles", fill=(0, 0, 0), font=info_main_font
     )
     draw.text(
-        (10, 80), f"Plugged in: {yes_no(dashboard_data.leaf.is_plugged_in)}    Charging: {yes_no(dashboard_data.leaf.is_charging)}", fill=(0, 0, 0), font=info_sub_font
+        (10, 80),
+        f"Plugged in: {yes_no(dashboard_data.leaf.is_plugged_in)}    Charging: {yes_no(dashboard_data.leaf.is_charging)}",
+        fill=(0, 0, 0),
+        font=info_sub_font,
     )
 
     image_buf = BytesIO()
