@@ -8,7 +8,7 @@ import requests
 import sys
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
 app = FastAPI()
 
@@ -69,40 +69,43 @@ class WeatherData:
 
 def get_weather():
     # TODO: cache responses
-    openweather_api_key = os.getenv("OPENWEATHER_API_KEY")
-    if not openweather_api_key:
-        print("ERROR: OPENWEATHER_API_KEY not set")
-        return None
-    
-    lat = os.getenv("OPENWEATHER_LAT")
-    lng = os.getenv("OPENWEATHER_LNG")
-    if not lat or not lng:
-        print("ERROR: OPENWEATHER_LAT or OPENWEATHER_LNG not set")
-        return None
+    try:
+        openweather_api_key = os.getenv("OPENWEATHER_API_KEY")
+        if not openweather_api_key:
+            print("ERROR: OPENWEATHER_API_KEY not set")
+            return None
+        
+        lat = os.getenv("OPENWEATHER_LAT")
+        lng = os.getenv("OPENWEATHER_LNG")
+        if not lat or not lng:
+            print("ERROR: OPENWEATHER_LAT or OPENWEATHER_LNG not set")
+            return None
 
-    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={openweather_api_key}&units=metric"
-    response = requests.get(url)
-    if response.status_code != 200:
-        print(f"ERROR: OpenWeather API returned {response.status_code}")
+        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={openweather_api_key}&units=metric"
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f"ERROR: OpenWeather API returned {response.status_code}")
+            return None
+        
+        weather = response.json()
+        description = weather["weather"][0]["description"]
+        icon_name = weather["weather"][0]["icon"]
+        temp = weather["main"]["temp"]
+        
+        icon_url = f"https://openweathermap.org/img/wn/{icon_name}@2x.png"
+        icon_folder = os.path.join(dashboard_input_dir, "weather-icons")
+        if not os.path.isdir(icon_folder):
+            os.makedirs(icon_folder)
+        icon_path = os.path.join(icon_folder, f"{icon_name}.png")
+        if not os.path.isfile(icon_path):
+            icon_response = requests.get(icon_url)
+            with open(icon_path, "wb") as f:
+                f.write(icon_response.content)
+
+        return WeatherData(description=description, temperature=temp, icon_path=icon_path)
+    except Exception as e:
+        print(f"ERROR getting weather: {e}")
         return None
-    
-    weather = response.json()
-    description = weather["weather"][0]["description"]
-    icon_name = weather["weather"][0]["icon"]
-    temp = weather["main"]["temp"]
-    
-    icon_url = f"https://openweathermap.org/img/wn/{icon_name}@2x.png"
-    icon_folder = os.path.join(dashboard_input_dir, "weather-icons")
-    if not os.path.isdir(icon_folder):
-        os.makedirs(icon_folder)
-    icon_path = os.path.join(icon_folder, f"{icon_name}.png")
-    if not os.path.isfile(icon_path):
-        icon_response = requests.get(icon_url)
-        with open(icon_path, "wb") as f:
-            f.write(icon_response.content)
-
-    return WeatherData(description=description, temperature=temp, icon_path=icon_path)
-
 
 
 def get_message():
@@ -135,7 +138,7 @@ class DashboardData:
     leaf: LeafData
     date_string: str
     message: str
-    weather: WeatherData
+    weather: WeatherData | None
 
 
 def get_dashboard_data():
@@ -219,20 +222,35 @@ def get_dashboard_image(request: Request):
         font=info_sub_font,
     )
 
-    # load weather icon
-    weather_icon = Image.open(dashboard_data.weather.icon_path)
-    image.paste(weather_icon, box= (10, 120))
-    draw.text(
-        (10 + weather_icon.width + 10, 130),
-        f"Current: {dashboard_data.weather.temperature:.0f}°C {dashboard_data.weather.description}",
-        fill=(0, 0, 0),
-        font=weather_font,
-    )
+    if dashboard_data.weather:
+        # load weather icon
+        weather_icon = Image.open(dashboard_data.weather.icon_path)
 
+        # darken the image as light clouds etc are hard to see on the eink display
+        enhancer = ImageEnhance.Brightness(weather_icon)
+        weather_icon = enhancer.enhance(0.65)
+
+        image.paste(weather_icon, box= (10, 120))
+        draw.text(
+            (10 + weather_icon.width + 10, 130),
+            f"Current: {dashboard_data.weather.temperature:.0f}°C {dashboard_data.weather.description}",
+            fill=(0, 0, 0),
+            font=weather_font,
+        )
+
+    for x in [80, 240, 400, 560, 720]:
+        draw.line((x, 460, x, 490), fill=(0, 0, 0))
+
+    message_font_size = 25
     message = dashboard_data.message
-    message_width = draw.textlength(message, font=heading_font)
-    message_x = (image.width - message_width) / 2
-    draw.text((message_x, 400), message, fill=(0, 0, 0), font=message_font)
+    while message_font_size > 10:
+        message_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", message_font_size)
+        message_width = draw.textlength(message, font=message_font)
+        if message_width < image.width - 20:
+            message_x = (image.width - message_width) / 2
+            draw.text((message_x, 400), message, fill=(0, 0, 0), font=message_font)
+            break
+        message_font_size -= 1
 
     # handle the alpha channel (needed for PNGs from OpenWeatherMap)
     image = pure_pil_alpha_to_color_v2(image)

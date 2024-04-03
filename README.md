@@ -2,7 +2,7 @@
 
 An API for gathering data to show on an [InkyFrame](https://pimoroni.com/inkyframe).
 
-
+Download FiraCode-Regular.ttf and place in a `fonts` directory under `home-dash`.
 
 ## Installation
 
