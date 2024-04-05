@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dashboard-pvc
+  namespace: default
+spec:
+  # https://kubernetes.io/docs/concepts/storage/persistent-volumes/#access-modes
+  accessModes:
+    - ReadWriteOnce # good enough as we only have a single node currently!
+    # ideally ReadWriteMany, but not available for local-path
+    # - ReadWriteMany 
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 100Mi

@@ -46,7 +46,7 @@ def get_leaf_summary():
 
     if not os.path.isfile(leaf_summary_file):
         print("ERROR: leaf-summary.json does not exist")
-        sys.exit(1)
+        sys.exit(1) # TODO - handle this gracefully!
 
     with open(leaf_summary_file) as f:
         leaf_summary = json.load(f)
