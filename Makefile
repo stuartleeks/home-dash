@@ -9,3 +9,4 @@ update-pibell-0: rsync-pibell-0
 	@ssh pi@pibell-0.lan "cd source/home-dash/leaf-status && docker build -t pibell-0.lan:5000/leaf-status . && docker push pibell-0.lan:5000/leaf-status"
 	@echo "*** applying k8s manifests"
 	@kubectl apply -f deploy
+	@kubectl delete pod --selector app=dash-api # restart pod to apply changes

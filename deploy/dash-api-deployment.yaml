@@ -24,6 +24,21 @@ spec:
         env:
         - name: DASHBOARD_INPUT_DIR
           value: /mnt/dashboard-info
+        - name: OPENWEATHER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: weather-creds
+              key: api-key
+        - name: OPENWEATHER_LAT
+          valueFrom:
+            secretKeyRef:
+              name: weather-creds
+              key: lat
+        - name: OPENWEATHER_LNG
+          valueFrom:
+            secretKeyRef:
+              name: weather-creds
+              key: lon
       volumes:
         - name: dashboard-volume
           persistentVolumeClaim:

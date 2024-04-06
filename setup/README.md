@@ -27,6 +27,9 @@ Create a k8s secret for the leaf service credentials:
 
 `kubectl create secret generic leaf-creds --from-literal=password='<password>' --from-literal=user='<username>'`
 
+Create a k8s secret for the weather API:
+
+`kubectl create secret generic weather-creds --from-literal=api-key='<api-key>' --from-literal=lat='<latitude>' --from-literal=lon='<longitude>'`
 
 ## leaf-status
 
