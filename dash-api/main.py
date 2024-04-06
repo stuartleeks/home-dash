@@ -128,10 +128,10 @@ def get_message():
 
 @dataclass
 class LeafData:
-    estimated_range: float
     is_plugged_in: bool
     is_charging: bool
-
+    cruising_range_ac_off_miles : float
+    cruising_range_ac_on_miles : float
 
 @dataclass
 class DashboardData:
@@ -146,7 +146,8 @@ def get_dashboard_data():
 
     dashboard_data = DashboardData(
         leaf=LeafData(
-            estimated_range=leaf_summary["estimated_range"],
+            cruising_range_ac_off_miles=leaf_summary["cruising_range_ac_off_miles"],
+            cruising_range_ac_on_miles=leaf_summary["cruising_range_ac_on_miles"],
             is_plugged_in=leaf_summary["is_connected"],
             is_charging=leaf_summary["charging_status"] != "NOT_CHARGING",
         ),
@@ -211,9 +212,11 @@ def get_dashboard_image(request: Request):
     date_x = image.width - date_width - 10
     draw.text((date_x, 10), date_text, fill=(0, 0, 0), font=heading_font)
 
-    leaf_range = dashboard_data.leaf.estimated_range
+    cruising_range_ac_off_miles = dashboard_data.leaf.cruising_range_ac_off_miles
+    cruising_range_ac_on_miles = dashboard_data.leaf.cruising_range_ac_on_miles
+
     draw.text(
-        (10, 40), f"Range: {leaf_range:.0f} miles", fill=(0, 0, 0), font=info_main_font
+        (10, 40), f"Range: {cruising_range_ac_off_miles:.0f} miles ({cruising_range_ac_on_miles:.0f} miles)", fill=(0, 0, 0), font=info_main_font
     )
     draw.text(
         (10, 80),
