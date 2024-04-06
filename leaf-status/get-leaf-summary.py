@@ -14,6 +14,8 @@ load_dotenv()
 # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.basicConfig(stream=sys.stdout, level=logging.INFO, format='LEAF:%(asctime)s:%(levelname)s: %(message)s')
 
+miles_per_km = 0.62137119
+
 username = os.getenv("LEAF_USERNAME")
 password = os.getenv("LEAF_PASSWORD")
 region = os.getenv("LEAF_REGION")
@@ -78,6 +80,11 @@ electric_cost_scale = driving_analysis.electric_cost_scale
 
 miles_per_kWh = get_miles_per_kWh(electric_mileage, electric_cost_scale)
 
+cruising_range_ac_off_km = leaf_info.cruising_range_ac_off_km
+cruising_range_ac_on_km = leaf_info.cruising_range_ac_on_km
+cruising_range_ac_on_miles = cruising_range_ac_on_km * miles_per_km
+cruising_range_ac_off_miles = cruising_range_ac_off_km * miles_per_km
+
 battery_capacity = (
     float(leaf_info.battery_capacity) / 10
 )  # convert to kWh (e.g. returns 240 for 24 kWh)
@@ -97,6 +104,8 @@ summary = {
     "estimated_range": miles_per_kWh * battery_remaining_amount
     if miles_per_kWh
     else None,
+    "cruising_range_ac_off_miles": cruising_range_ac_off_miles,
+    "cruising_range_ac_on_miles": cruising_range_ac_on_miles,
 }
 
 print(summary)
