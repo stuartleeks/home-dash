@@ -21,25 +21,19 @@ spec:
         volumeMounts:
         - name: dashboard-volume
           mountPath: /mnt/dashboard-info
+        - name: message-file
+          mountPath: /mnt/dashboard-messages.json
+          readOnly: true
         env:
         - name: DASHBOARD_INPUT_DIR
           value: /mnt/dashboard-info
-        - name: OPENWEATHER_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: weather-creds
-              key: api-key
-        - name: OPENWEATHER_LAT
-          valueFrom:
-            secretKeyRef:
-              name: weather-creds
-              key: lat
-        - name: OPENWEATHER_LNG
-          valueFrom:
-            secretKeyRef:
-              name: weather-creds
-              key: lon
+        - name: MESSAGES_FILE
+          value: /mnt/dashboard-messages.json
       volumes:
         - name: dashboard-volume
           persistentVolumeClaim:
             claimName: dashboard-pvc
+        - name: message-file
+          hostPath:
+            path: /home/pi/dashboard-info/messages.json
+            type: File

@@ -1,10 +1,10 @@
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from io import BytesIO
+import itertools
 import json
 import logging
 import os
-import requests
 import sys
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
@@ -16,6 +16,10 @@ from dotenv import load_dotenv
 
 if "SKIP_DOTENV" not in os.environ:
     load_dotenv()
+
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+leaf_image_dir = os.path.join(script_dir, "leaf_images")
 
 # logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 logging.basicConfig(
@@ -34,6 +38,9 @@ if not os.path.isdir(dashboard_input_dir):
     sys.exit(1)
 
 
+messages_file = os.getenv("MESSAGES_FILE") or os.path.join(dashboard_input_dir, "messages.json")
+print(f"Using messages file: {messages_file}")
+
 @app.get("/")
 def root():
     return {"message": "Hello World"}
@@ -46,7 +53,7 @@ def get_leaf_summary():
 
     if not os.path.isfile(leaf_summary_file):
         print("ERROR: leaf-summary.json does not exist")
-        sys.exit(1) # TODO - handle this gracefully!
+        sys.exit(1)  # TODO - handle this gracefully!
 
     with open(leaf_summary_file) as f:
         leaf_summary = json.load(f)
@@ -61,61 +68,41 @@ def hash_data(data):
     data_hash = hash(data_string)
     return data_hash
 
+
 @dataclass
 class WeatherData:
+    time: str
     description: str
     temperature: float
+    feels_like: float
     icon_path: str
+    wind_speed_mph: float
+    wind_gust_mph: float | None
+
 
 def get_weather():
-    # TODO: cache responses
-    try:
-        openweather_api_key = os.getenv("OPENWEATHER_API_KEY")
-        if not openweather_api_key:
-            print("ERROR: OPENWEATHER_API_KEY not set")
-            return None
-        
-        lat = os.getenv("OPENWEATHER_LAT")
-        lng = os.getenv("OPENWEATHER_LNG")
-        if not lat or not lng:
-            print("ERROR: OPENWEATHER_LAT or OPENWEATHER_LNG not set")
-            return None
+    # Get the leaf summary content from leaf-summary.json
+    weather_summary_file = os.path.join(dashboard_input_dir, "weather-summary.json")
 
-        url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={openweather_api_key}&units=metric"
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f"ERROR: OpenWeather API returned {response.status_code}")
-            return None
-        
-        weather = response.json()
-        description = weather["weather"][0]["description"]
-        icon_name = weather["weather"][0]["icon"]
-        temp = weather["main"]["temp"]
-        
-        icon_url = f"https://openweathermap.org/img/wn/{icon_name}@2x.png"
-        icon_folder = os.path.join(dashboard_input_dir, "weather-icons")
-        if not os.path.isdir(icon_folder):
-            os.makedirs(icon_folder)
-        icon_path = os.path.join(icon_folder, f"{icon_name}.png")
-        if not os.path.isfile(icon_path):
-            icon_response = requests.get(icon_url)
-            with open(icon_path, "wb") as f:
-                f.write(icon_response.content)
-
-        return WeatherData(description=description, temperature=temp, icon_path=icon_path)
-    except Exception as e:
-        print(f"ERROR getting weather: {e}")
+    if not os.path.isfile(weather_summary_file):
+        print("ERROR: weather-summary.json does not exist")
         return None
+
+    with open(weather_summary_file) as f:
+        weather_summary_json = json.load(f)
+        # parse the json into a list of WeatherData objects
+        weather_data = []
+        for weather in weather_summary_json["values"]:
+            weather_data.append(WeatherData(**weather))
+
+    return weather_data
 
 
 def get_message():
-    print (dashboard_input_dir)
-    messages_file = os.path.join(dashboard_input_dir, "messages.json")
-
     if os.path.isfile(messages_file):
         with open(messages_file) as f:
             messages = json.load(f)
-        
+
         date_string = datetime.now().strftime("%Y-%m-%d")
         if date_string in messages:
             return messages[date_string]
@@ -126,30 +113,50 @@ def get_message():
         print("No messages file: ", messages_file, flush=True)
         return ""
 
+
 @dataclass
 class LeafData:
     is_plugged_in: bool
     is_charging: bool
-    cruising_range_ac_off_miles : float
-    cruising_range_ac_on_miles : float
+    cruising_range_ac_off_miles: float
+    cruising_range_ac_on_miles: float
+    icon_path: str
+
+
+LEAF_ICON_NOT_PLUGGED_IN = "not_plugged_in.png"
+LEAF_ICON_PLUGGED_IN = "plugged_in.png"
+LEAF_ICON_CHARGING = "charging.png"
+
 
 @dataclass
 class DashboardData:
     leaf: LeafData
     date_string: str
     message: str
-    weather: WeatherData | None
+    weather: list[WeatherData] | None
+
+
+def get_leaf_icon(plugged_in: bool, charging: bool):
+    if plugged_in:
+        if charging:
+            return LEAF_ICON_CHARGING
+        return LEAF_ICON_PLUGGED_IN
+    return LEAF_ICON_NOT_PLUGGED_IN
 
 
 def get_dashboard_data():
     leaf_summary = get_leaf_summary()
 
+    plugged_in = leaf_summary["is_connected"]
+    charging = leaf_summary["charging_status"] != "NOT_CHARGING"
+    leaf_icon = get_leaf_icon(plugged_in, charging)
     dashboard_data = DashboardData(
         leaf=LeafData(
             cruising_range_ac_off_miles=leaf_summary["cruising_range_ac_off_miles"],
             cruising_range_ac_on_miles=leaf_summary["cruising_range_ac_on_miles"],
-            is_plugged_in=leaf_summary["is_connected"],
-            is_charging=leaf_summary["charging_status"] != "NOT_CHARGING",
+            is_plugged_in=plugged_in,
+            is_charging=charging,
+            icon_path=os.path.join(leaf_image_dir, leaf_icon),
         ),
         date_string=datetime.now().strftime("%A, %d %B %Y"),
         message=get_message(),
@@ -161,6 +168,7 @@ def get_dashboard_data():
 
 def yes_no(value: bool):
     return "Yes" if value else "No"
+
 
 def pure_pil_alpha_to_color_v2(image, color=(255, 255, 255)):
     """Alpha composite an RGBA Image with a specified color.
@@ -176,7 +184,7 @@ def pure_pil_alpha_to_color_v2(image, color=(255, 255, 255)):
     """
     # from: https://stackoverflow.com/questions/9166400/convert-rgba-png-to-rgb-with-pil
     image.load()  # needed for split()
-    background = Image.new('RGB', image.size, color)
+    background = Image.new("RGB", image.size, color)
     background.paste(image, mask=image.split()[3])  # 3 is the alpha channel
     return background
 
@@ -193,61 +201,26 @@ def get_dashboard_image(request: Request):
             return Response(status_code=304)
 
     image = Image.new(mode="RGBA", size=(800, 480), color=(255, 255, 255))
-
     draw = ImageDraw.Draw(image)
 
     message_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
-    info_main_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 35)
-    heading_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
-    info_sub_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
-    weather_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
 
-    title = "Leeks Dashboard"
-    title_width = draw.textlength(title, font=heading_font)
-    title_x = (image.width / 2 - title_width) / 2
-    draw.text((title_x, 10), title, fill=(0, 0, 0), font=heading_font)
+    draw_heading(image, draw, dashboard_data)
 
-    date_text = dashboard_data.date_string
-    date_width = draw.textlength(date_text, font=heading_font)
-    date_x = image.width - date_width - 10
-    draw.text((date_x, 10), date_text, fill=(0, 0, 0), font=heading_font)
+    draw_leaf_info(image, draw, dashboard_data.leaf)
 
-    cruising_range_ac_off_miles = dashboard_data.leaf.cruising_range_ac_off_miles
-    cruising_range_ac_on_miles = dashboard_data.leaf.cruising_range_ac_on_miles
+    draw_weather(image, draw, dashboard_data.weather, weather_left=30, weather_top=150)
 
-    draw.text(
-        (10, 40), f"Range: {cruising_range_ac_off_miles:.0f} miles ({cruising_range_ac_on_miles:.0f} miles)", fill=(0, 0, 0), font=info_main_font
-    )
-    draw.text(
-        (10, 80),
-        f"Plugged in: {yes_no(dashboard_data.leaf.is_plugged_in)}    Charging: {yes_no(dashboard_data.leaf.is_charging)}",
-        fill=(0, 0, 0),
-        font=info_sub_font,
-    )
-
-    if dashboard_data.weather:
-        # load weather icon
-        weather_icon = Image.open(dashboard_data.weather.icon_path)
-
-        # darken the image as light clouds etc are hard to see on the eink display
-        enhancer = ImageEnhance.Brightness(weather_icon)
-        weather_icon = enhancer.enhance(0.65)
-
-        image.paste(weather_icon, box= (10, 120))
-        draw.text(
-            (10 + weather_icon.width + 10, 130),
-            f"Current: {dashboard_data.weather.temperature:.0f}°C {dashboard_data.weather.description}",
-            fill=(0, 0, 0),
-            font=weather_font,
-        )
-
+    # draw lines for buttons
     for x in [80, 240, 400, 560, 720]:
         draw.line((x, 460, x, 490), fill=(0, 0, 0))
 
     message_font_size = 25
     message = dashboard_data.message
     while message_font_size > 10:
-        message_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", message_font_size)
+        message_font = ImageFont.truetype(
+            "fonts/FiraCode-Regular.ttf", message_font_size
+        )
         message_width = draw.textlength(message, font=message_font)
         if message_width < image.width - 20:
             message_x = (image.width - message_width) / 2
@@ -265,3 +238,151 @@ def get_dashboard_image(request: Request):
     return StreamingResponse(
         image_buf, media_type="image/jpeg", headers={"ETag": str(data_hash)}
     )
+
+
+def draw_centred(draw, xy, text, font):
+    """Draw text centred on the x coordinate.
+    Returns the width of the text drawn."""
+    x = xy[0]
+    y = xy[1]
+    text_width = draw.textlength(text, font=font)
+    text_x = x - (text_width) / 2
+    draw.text((text_x, y), text, fill=(0, 0, 0), font=font)
+    return text_width
+
+
+def draw_weather(image, draw, weather_list, weather_left, weather_top):
+    weather_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+    weather_font_temp_main = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 30)
+    weather_font_temp_feels_like = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+    weather_font_description = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 15)
+    weather_width = 200
+
+    if weather_list:
+        print("weather", weather_list)
+        for idx, weather in enumerate(
+            itertools.islice(weather_list[1:], 3)
+        ):  # skip first item ('now') and take up to next 3 items
+            print("weather_left", weather_left)
+            # load weather icon
+            weather_icon = Image.open(weather.icon_path)
+
+            # darken the image as light clouds etc are hard to see on the eink display
+            enhancer = ImageEnhance.Brightness(weather_icon)
+            weather_icon = enhancer.enhance(0.65)
+
+            if idx == 0:
+                weather_icon = weather_icon.resize((150, 150))
+                weather_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+                weather_font_temp_main = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 30
+                )
+                weather_font_temp_feels_like = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 20
+                )
+                weather_font_description = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 20
+                )
+                weather_width = 250
+                weather_x_offset = 50
+                temp_offset = 35
+                feels_like_offset = 35
+                description_offset = 60
+                wind_offset = 25
+            else:
+                weather_icon = weather_icon.resize((85, 85))
+                weather_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 17)
+                weather_font_temp_main = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 25
+                )
+                weather_font_temp_feels_like = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 15
+                )
+                weather_font_description = ImageFont.truetype(
+                    "fonts/FiraCode-Regular.ttf", 15
+                )
+                weather_x_offset = 10
+                weather_width = 200
+                temp_offset = 25
+                feels_like_offset = 35
+                description_offset = 30
+                wind_offset = 15
+
+            current_y = weather_top
+            image.paste(weather_icon, box=(weather_left, current_y + 5))
+            draw_centred(
+                draw,
+                (weather_left + (weather_width / 2), current_y),
+                weather.time,
+                font=weather_font,
+            )
+
+            current_y += temp_offset
+            draw.text(
+                (weather_left + weather_icon.width, current_y),
+                f"{weather.temperature:.0f}°C",
+                fill=(0, 0, 0),
+                font=weather_font_temp_main,
+            )
+
+            current_y += feels_like_offset
+            draw.text(
+                (weather_left + weather_icon.width, current_y),
+                f"({weather.feels_like:.0f}°C)",
+                fill=(0, 0, 0),
+                font=weather_font_temp_feels_like,
+            )
+
+            current_y += description_offset
+            draw_centred(
+                draw,
+                (weather_left + weather_width / 2, current_y),
+                weather.description,
+                font=weather_font_description,
+            )
+
+            current_y += wind_offset
+            draw_centred(
+                draw,
+                (weather_left + weather_width / 2, current_y),
+                f"{weather.wind_speed_mph:.0f} mph ({weather.wind_gust_mph:.0f} mph gusts)",
+                font=weather_font_description,
+            )
+            weather_left += weather_width + weather_x_offset
+
+
+def draw_leaf_info(image: Image, image_draw: ImageDraw, leaf_info: LeafData):
+    info_main_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 35)
+    info_sub_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+
+    cruising_range_ac_off_miles = leaf_info.cruising_range_ac_off_miles
+    cruising_range_ac_on_miles = leaf_info.cruising_range_ac_on_miles
+
+    image_draw.text(
+        (110, 60),
+        f"Range: {cruising_range_ac_off_miles:.0f} miles",
+        fill=(0, 0, 0),
+        font=info_main_font,
+    )
+    image_draw.text(
+        (110, 100),
+        f"({cruising_range_ac_on_miles:.0f} with climate control)",
+        fill=(0, 0, 0),
+        font=info_sub_font,
+    )
+    leaf_image = Image.open(leaf_info.icon_path)
+    image.paste(leaf_image, box=(10, 40))
+
+
+def draw_heading(image: Image, draw: ImageDraw, dashboard_data):
+    heading_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
+
+    title = "Leeks Dashboard"
+    title_width = draw.textlength(title, font=heading_font)
+    title_x = (image.width / 2 - title_width) / 2
+    draw.text((title_x, 10), title, fill=(0, 0, 0), font=heading_font)
+
+    date_text = dashboard_data.date_string
+    date_width = draw.textlength(date_text, font=heading_font)
+    date_x = image.width - date_width - 10
+    draw.text((date_x, 10), date_text, fill=(0, 0, 0), font=heading_font)

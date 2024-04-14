@@ -1,39 +1,42 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: leaf-status
+  name: fetch-weather
 spec:
-  schedule: "0/30 * * * *"
+  schedule: "3/15 * * * *"
   successfulJobsHistoryLimit: 1
   jobTemplate:
     spec:
       template:
         spec:
           containers:
-          - name: leaf-status
-            image: pibell-0.lan:5000/leaf-status:latest
+          - name: fetch-weather
+            image: pibell-0.lan:5000/fetch-weather:latest
             imagePullPolicy: Always
             command:
             - python3
-            - /app/get-leaf-summary.py
+            - /app/main.py
             volumeMounts:
             - name: dashboard-volume
               mountPath: /mnt/dashboard-info
             env:
-            - name: LEAF_OUTPUT_FILE
-              value: /mnt/dashboard-info/leaf-summary.json
-            - name: LEAF_REGION
-              value: NE # NNA=USA, NE=Europe, NCI=Canada, NMA=Austrailia, NML=Japan
-            - name: LEAF_USERNAME
+            - name: OUTPUT_DIR
+              value: /mnt/dashboard-info
+            - name: OPENWEATHER_API_KEY
               valueFrom:
                 secretKeyRef:
-                  name: leaf-creds
-                  key: user
-            - name: LEAF_PASSWORD
+                  name: weather-creds
+                  key: api-key
+            - name: OPENWEATHER_LAT
               valueFrom:
                 secretKeyRef:
-                  name: leaf-creds
-                  key: password
+                  name: weather-creds
+                  key: lat
+            - name: OPENWEATHER_LNG
+              valueFrom:
+                secretKeyRef:
+                  name: weather-creds
+                  key: lon
           volumes:
             - name: dashboard-volume
               persistentVolumeClaim:

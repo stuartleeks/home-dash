@@ -2,4 +2,3 @@ python-dotenv
 FastAPI
 Pillow
 uvicorn[standard]
-requests
