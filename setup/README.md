@@ -40,4 +40,10 @@ Create a secret for the app insights connection string
 
 To test the cronjob, create a job derived from it: `kubectl create job --from=cronjob/leaf-status leaf-status-test`
 
+## dash-api
+
+Download FiraCode-Regular.ttf and place in a `fonts` directory under `dash-api`.
+
+
+
 
