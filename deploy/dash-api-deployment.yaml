@@ -29,6 +29,11 @@ spec:
           value: /mnt/dashboard-info
         - name: MESSAGES_FILE
           value: /mnt/dashboard-messages.json
+        - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+          valueFrom:
+            secretKeyRef:
+              name: dash-api-app-insights
+              key: connection_string
       volumes:
         - name: dashboard-volume
           persistentVolumeClaim:

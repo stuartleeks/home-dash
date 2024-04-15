@@ -31,6 +31,11 @@ Create a k8s secret for the weather API:
 
 `kubectl create secret generic weather-creds --from-literal=api-key='<api-key>' --from-literal=lat='<latitude>' --from-literal=lon='<longitude>'`
 
+Create a secret for the app insights connection string
+
+`kubectl create secret generic dash-api-app-insights --from-literal=connection_string='<connection_string>'`
+
+
 ## leaf-status
 
 To test the cronjob, create a job derived from it: `kubectl create job --from=cronjob/leaf-status leaf-status-test`

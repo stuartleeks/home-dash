@@ -6,8 +6,11 @@ import json
 import logging
 import os
 import sys
+
+from azure.monitor.opentelemetry import configure_azure_monitor
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
+from opentelemetry import metrics
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
 app = FastAPI()
@@ -17,6 +20,18 @@ from dotenv import load_dotenv
 if "SKIP_DOTENV" not in os.environ:
     load_dotenv()
 
+app_insights_connection_string = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
+if app_insights_connection_string:
+    print("Configuring Azure Monitor")
+    print(f"Connection string: {app_insights_connection_string}")
+    configure_azure_monitor(
+        connection_string=app_insights_connection_string,
+    )
+else:
+    print("No Azure Monitor configuration found")
+
+meter = metrics.get_meter_provider().get_meter("dash-api")
+histogram_dashboard_image_requests = meter.create_histogram("dashboard-image-requests", "count", "Number of dashboard image requests")
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 leaf_image_dir = os.path.join(script_dir, "leaf_images")
@@ -192,12 +207,14 @@ def pure_pil_alpha_to_color_v2(image, color=(255, 255, 255)):
 @app.get("/dashboard-image")
 def get_dashboard_image(request: Request):
     dashboard_data = get_dashboard_data()
+    print(request.headers, flush=True)
 
     data_hash = hash_data(dashboard_data)
     if "If-None-Match" in request.headers:
         if_none_match_value = request.headers["If-None-Match"]
         print(f"**Got IfNoneMatch: '{if_none_match_value}'", flush=True)
         if request.headers["If-None-Match"] == str(data_hash):
+            histogram_dashboard_image_requests.record(1, {"status": "304", "user-agent": request.headers.get("User-Agent")})
             return Response(status_code=304)
 
     image = Image.new(mode="RGBA", size=(800, 480), color=(255, 255, 255))
@@ -235,6 +252,7 @@ def get_dashboard_image(request: Request):
     image.save(image_buf, "JPEG")
     image_buf.seek(0)
 
+    histogram_dashboard_image_requests.record(1, {"status": "200", "user-agent": request.headers.get("User-Agent")})
     return StreamingResponse(
         image_buf, media_type="image/jpeg", headers={"ETag": str(data_hash)}
     )
