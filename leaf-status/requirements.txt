@@ -1,2 +1,2 @@
-pycarwings2
+pycarwings2==2.14
 python-dotenv

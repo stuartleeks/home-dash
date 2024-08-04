@@ -41,7 +41,7 @@ def update_battery_status(leaf, wait_interval=1):
     counter = 0
     # Currently the nissan servers eventually return status 200 from get_status_from_update(), previously
     # they did not, and it was necessary to check the date returned within get_latest_battery_status().
-    while status is None:
+    while status is None and counter < 10:
         counter += 1
         logging.info(f"Waiting {wait_interval} seconds (counter={counter})...")
         time.sleep(wait_interval)
@@ -61,6 +61,7 @@ def get_miles_per_kWh(electric_mileage, electric_cost_scale):
 
 
 logging.info("Preparing Session...")
+pycarwings2.BASE_URL= "https://gdcportalgw.its-mo.com/api_v230317_NE/gdc/"
 s = pycarwings2.Session(username, password, region)
 logging.info("Logging in...")
 leaf = s.get_leaf()
