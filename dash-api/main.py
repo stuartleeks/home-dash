@@ -1,3 +1,4 @@
+import hashlib
 from dataclasses import asdict, dataclass, is_dataclass
 from datetime import datetime
 from io import BytesIO
@@ -31,7 +32,9 @@ else:
     print("No Azure Monitor configuration found")
 
 meter = metrics.get_meter_provider().get_meter("dash-api")
-histogram_dashboard_image_requests = meter.create_histogram("dashboard-image-requests", "count", "Number of dashboard image requests")
+histogram_dashboard_image_requests = meter.create_histogram(
+    "dashboard-image-requests", "count", "Number of dashboard image requests"
+)
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 leaf_image_dir = os.path.join(script_dir, "leaf_images")
@@ -53,8 +56,11 @@ if not os.path.isdir(dashboard_input_dir):
     sys.exit(1)
 
 
-messages_file = os.getenv("MESSAGES_FILE") or os.path.join(dashboard_input_dir, "messages.json")
+messages_file = os.getenv("MESSAGES_FILE") or os.path.join(
+    dashboard_input_dir, "messages.json"
+)
 print(f"Using messages file: {messages_file}")
+
 
 @app.get("/")
 def root():
@@ -107,7 +113,7 @@ def get_weather():
         weather_summary_json = json.load(f)
         # parse the json into a list of WeatherData objects
         weather_data = []
-        for weather in weather_summary_json["values"]:
+        for weather in weather_summary_json["forecast"]:
             weather_data.append(WeatherData(**weather))
 
     return weather_data
@@ -159,12 +165,29 @@ def get_leaf_icon(plugged_in: bool, charging: bool):
     return LEAF_ICON_NOT_PLUGGED_IN
 
 
+def get_rounded_weather_data(weather_data: WeatherData) -> WeatherData:
+    return WeatherData(
+        time=weather_data.time,
+        description=weather_data.description,
+        temperature=round(weather_data.temperature),
+        feels_like=round(weather_data.feels_like),
+        icon_path=weather_data.icon_path,
+        wind_speed_mph=round(weather_data.wind_speed_mph),
+        wind_gust_mph=round(weather_data.wind_gust_mph) if weather_data.wind_gust_mph else None,
+    )
+
 def get_dashboard_data():
     leaf_summary = get_leaf_summary()
 
     plugged_in = leaf_summary["is_connected"]
     charging = leaf_summary["charging_status"] != "NOT_CHARGING"
     leaf_icon = get_leaf_icon(plugged_in, charging)
+    weather = get_weather()
+    if weather:
+        # take up to three weather entries
+        weather = list(itertools.islice(weather, 3))
+        weather = [get_rounded_weather_data(w) for w in weather]
+
     dashboard_data = DashboardData(
         leaf=LeafData(
             cruising_range_ac_off_miles=leaf_summary["cruising_range_ac_off_miles"],
@@ -175,7 +198,7 @@ def get_dashboard_data():
         ),
         date_string=datetime.now().strftime("%A, %d %B %Y"),
         message=get_message(),
-        weather=get_weather(),
+        weather=weather,
     )
 
     return dashboard_data
@@ -207,16 +230,51 @@ def pure_pil_alpha_to_color_v2(image, color=(255, 255, 255)):
 @app.get("/dashboard-image")
 def get_dashboard_image(request: Request):
     dashboard_data = get_dashboard_data()
-    print(request.headers, flush=True)
 
-    data_hash = hash_data(dashboard_data)
+    now = datetime.now()
+    current_hour = now.hour
+    mins_to_sleep = 5
+    if current_hour < 6 or current_hour > 22:
+        # sleep until 6am
+        mins_to_sleep = (6 - current_hour) * 60
+        if mins_to_sleep < 0:
+            mins_to_sleep += 24 * 60
+
+    print("Dashboard data: ", dashboard_data, flush=True)
+
+    image_buf = generate_dashboard_image(dashboard_data)
+    image_hash = get_image_hash(image_buf)
+
+    print(f"**Image hash: {image_hash}", flush=True)
+
     if "If-None-Match" in request.headers:
         if_none_match_value = request.headers["If-None-Match"]
         print(f"**Got IfNoneMatch: '{if_none_match_value}'", flush=True)
-        if request.headers["If-None-Match"] == str(data_hash):
-            histogram_dashboard_image_requests.record(1, {"status": "304", "user-agent": request.headers.get("User-Agent")})
-            return Response(status_code=304)
+        if request.headers["If-None-Match"] == str(image_hash):
+            histogram_dashboard_image_requests.record(
+                1, {"status": "304", "user-agent": request.headers.get("User-Agent")}
+            )
+            return Response(
+                status_code=304, headers={"mins-to-sleep": str(mins_to_sleep)}
+            )
+    
 
+    histogram_dashboard_image_requests.record(
+        1, {"status": "200", "user-agent": request.headers.get("User-Agent")}
+    )
+    return StreamingResponse(
+        image_buf,
+        media_type="image/jpeg",
+        headers={"ETag": str(image_hash), "mins-to-sleep": str(mins_to_sleep)},
+    )
+
+def get_image_hash(image_buf):
+    hash_md5 = hashlib.md5()
+    hash_md5.update(image_buf.getvalue())
+    image_hash = hash_md5.hexdigest()
+    return image_hash
+
+def generate_dashboard_image(dashboard_data):
     image = Image.new(mode="RGBA", size=(800, 480), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
 
@@ -251,11 +309,7 @@ def get_dashboard_image(request: Request):
     image_buf = BytesIO()
     image.save(image_buf, "JPEG")
     image_buf.seek(0)
-
-    histogram_dashboard_image_requests.record(1, {"status": "200", "user-agent": request.headers.get("User-Agent")})
-    return StreamingResponse(
-        image_buf, media_type="image/jpeg", headers={"ETag": str(data_hash)}
-    )
+    return image_buf
 
 
 def draw_centred(draw, xy, text, font):
@@ -277,11 +331,7 @@ def draw_weather(image, draw, weather_list, weather_left, weather_top):
     weather_width = 200
 
     if weather_list:
-        print("weather", weather_list)
-        for idx, weather in enumerate(
-            itertools.islice(weather_list[1:], 3)
-        ):  # skip first item ('now') and take up to next 3 items
-            print("weather_left", weather_left)
+        for idx, weather in enumerate(weather_list):
             # load weather icon
             weather_icon = Image.open(weather.icon_path)
 
