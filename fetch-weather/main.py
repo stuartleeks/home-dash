@@ -131,11 +131,8 @@ def get_weather_forecast() -> list[WeatherData]:
 
 
 weather_data = get_weather_forecast()
-now = get_current_weather()
 
-weather_data.insert(0, now)
-
-summary = {"values": [asdict(w) for w in weather_data]}
+summary = {"forecast": [asdict(w) for w in weather_data]}
 print(summary)
 
 json.dump(summary, open(output_file, "w"))
