@@ -1,0 +1,40 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: fetch-stocks
+spec:
+  schedule: "3/30 * * * *"
+  successfulJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      activeDeadlineSeconds: 120
+      template:
+        spec:
+          containers:
+          - name: fetch-stocks
+            image: pibell-0.lan:5000/fetch-stocks:latest
+            imagePullPolicy: Always
+            command:
+            - python3
+            - /app/main.py
+            volumeMounts:
+            - name: dashboard-volume
+              mountPath: /mnt/dashboard-info
+            env:
+            - name: OUTPUT_DIR
+              value: /mnt/dashboard-info
+            - name: STOCKS_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: stock-creds
+                  key: api-key
+            - name: STOCKS
+              valueFrom:
+                secretKeyRef:
+                  name: stock-creds
+                  key: stocks
+          volumes:
+            - name: dashboard-volume
+              persistentVolumeClaim:
+                claimName: dashboard-pvc
+          restartPolicy: OnFailure

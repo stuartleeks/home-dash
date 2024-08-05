@@ -82,6 +82,62 @@ def get_leaf_summary():
     return leaf_summary
 
 
+@dataclass
+class LeafData:
+    is_plugged_in: bool
+    is_charging: bool
+    cruising_range_ac_off_miles: float
+    cruising_range_ac_on_miles: float
+    icon_path: str
+
+
+LEAF_ICON_NOT_PLUGGED_IN = "not_plugged_in.png"
+LEAF_ICON_PLUGGED_IN = "plugged_in.png"
+LEAF_ICON_CHARGING = "charging.png"
+
+
+def get_leaf_data():
+    leaf_summary = get_leaf_summary()
+
+    plugged_in = leaf_summary["is_connected"]
+    charging = leaf_summary["charging_status"] != "NOT_CHARGING"
+    leaf_icon = get_leaf_icon(plugged_in, charging)
+    leaf_data = LeafData(
+        cruising_range_ac_off_miles=leaf_summary["cruising_range_ac_off_miles"],
+        cruising_range_ac_on_miles=leaf_summary["cruising_range_ac_on_miles"],
+        is_plugged_in=plugged_in,
+        is_charging=charging,
+        icon_path=os.path.join(leaf_image_dir, leaf_icon),
+    )
+
+    return leaf_data
+
+
+@dataclass
+class StockData:
+    symbol: str
+    price: float
+    currency: str
+
+
+def get_stock_data():
+    # Get the stock data from stocks.json
+    stocks_file = os.path.join(dashboard_input_dir, "stocks.json")
+
+    if not os.path.isfile(stocks_file):
+        print("ERROR: stocks.json does not exist")
+        sys.exit(1)  # TODO - handle this gracefully!
+
+    with open(stocks_file) as f:
+        stocks_data = json.load(f)
+
+    stocks = [
+        StockData(symbol=s["symbol"], price=s["price"], currency=s["currency"])
+        for s in stocks_data["stocks"]
+    ]
+    return stocks
+
+
 def hash_data(data):
     if is_dataclass(data):
         data = asdict(data)
@@ -101,7 +157,7 @@ class WeatherData:
     wind_gust_mph: float | None
 
 
-def get_weather():
+def get_weather_data():
     # Get the leaf summary content from leaf-summary.json
     weather_summary_file = os.path.join(dashboard_input_dir, "weather-summary.json")
 
@@ -136,25 +192,12 @@ def get_message():
 
 
 @dataclass
-class LeafData:
-    is_plugged_in: bool
-    is_charging: bool
-    cruising_range_ac_off_miles: float
-    cruising_range_ac_on_miles: float
-    icon_path: str
-
-
-LEAF_ICON_NOT_PLUGGED_IN = "not_plugged_in.png"
-LEAF_ICON_PLUGGED_IN = "plugged_in.png"
-LEAF_ICON_CHARGING = "charging.png"
-
-
-@dataclass
 class DashboardData:
     leaf: LeafData
     date_string: str
     message: str
     weather: list[WeatherData] | None
+    stocks: list[StockData]
 
 
 def get_leaf_icon(plugged_in: bool, charging: bool):
@@ -173,32 +216,28 @@ def get_rounded_weather_data(weather_data: WeatherData) -> WeatherData:
         feels_like=round(weather_data.feels_like),
         icon_path=weather_data.icon_path,
         wind_speed_mph=round(weather_data.wind_speed_mph),
-        wind_gust_mph=round(weather_data.wind_gust_mph) if weather_data.wind_gust_mph else None,
+        wind_gust_mph=(
+            round(weather_data.wind_gust_mph) if weather_data.wind_gust_mph else None
+        ),
     )
 
-def get_dashboard_data():
-    leaf_summary = get_leaf_summary()
 
-    plugged_in = leaf_summary["is_connected"]
-    charging = leaf_summary["charging_status"] != "NOT_CHARGING"
-    leaf_icon = get_leaf_icon(plugged_in, charging)
-    weather = get_weather()
+def get_dashboard_data():
+    leaf_data = get_leaf_data()
+    stock_data = get_stock_data()
+
+    weather = get_weather_data()
     if weather:
         # take up to three weather entries
         weather = list(itertools.islice(weather, 3))
         weather = [get_rounded_weather_data(w) for w in weather]
 
     dashboard_data = DashboardData(
-        leaf=LeafData(
-            cruising_range_ac_off_miles=leaf_summary["cruising_range_ac_off_miles"],
-            cruising_range_ac_on_miles=leaf_summary["cruising_range_ac_on_miles"],
-            is_plugged_in=plugged_in,
-            is_charging=charging,
-            icon_path=os.path.join(leaf_image_dir, leaf_icon),
-        ),
+        leaf=leaf_data,
         date_string=datetime.now().strftime("%A, %d %B %Y"),
         message=get_message(),
         weather=weather,
+        stocks=stock_data,
     )
 
     return dashboard_data
@@ -257,7 +296,6 @@ def get_dashboard_image(request: Request):
             return Response(
                 status_code=304, headers={"mins-to-sleep": str(mins_to_sleep)}
             )
-    
 
     histogram_dashboard_image_requests.record(
         1, {"status": "200", "user-agent": request.headers.get("User-Agent")}
@@ -268,13 +306,15 @@ def get_dashboard_image(request: Request):
         headers={"ETag": str(image_hash), "mins-to-sleep": str(mins_to_sleep)},
     )
 
+
 def get_image_hash(image_buf):
     hash_md5 = hashlib.md5()
     hash_md5.update(image_buf.getvalue())
     image_hash = hash_md5.hexdigest()
     return image_hash
 
-def generate_dashboard_image(dashboard_data):
+
+def generate_dashboard_image(dashboard_data: DashboardData):
     image = Image.new(mode="RGBA", size=(800, 480), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
 
@@ -284,7 +324,22 @@ def generate_dashboard_image(dashboard_data):
 
     draw_leaf_info(image, draw, dashboard_data.leaf)
 
-    draw_weather(image, draw, dashboard_data.weather, weather_left=30, weather_top=150)
+    draw_weather(image, draw, dashboard_data.weather, weather_left=30, weather_top=140)
+
+    stock_left = 30
+    stock_top = 340
+
+    stock_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+    top = stock_top
+    left = stock_left
+    for stock in dashboard_data.stocks:
+        draw.text(
+            (left, top),
+            f"{stock.symbol}: {stock.price} {stock.currency}",
+            fill=(0, 0, 0),
+            font=stock_font,
+        )
+        left += 250
 
     # draw lines for buttons
     for x in [80, 240, 400, 560, 720]:
@@ -427,13 +482,13 @@ def draw_leaf_info(image: Image, image_draw: ImageDraw, leaf_info: LeafData):
     cruising_range_ac_on_miles = leaf_info.cruising_range_ac_on_miles
 
     image_draw.text(
-        (110, 60),
+        (110, 50),
         f"Range: {cruising_range_ac_off_miles:.0f} miles",
         fill=(0, 0, 0),
         font=info_main_font,
     )
     image_draw.text(
-        (110, 100),
+        (110, 90),
         f"({cruising_range_ac_on_miles:.0f} with climate control)",
         fill=(0, 0, 0),
         font=info_sub_font,

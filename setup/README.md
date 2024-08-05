@@ -35,6 +35,10 @@ Create a secret for the app insights connection string
 
 `kubectl create secret generic dash-api-app-insights --from-literal=connection_string='<connection_string>'`
 
+Create a k8s secret for the stock service credentials:
+
+`kubectl create secret generic stock-creds --from-literal=api-key='<api-key>' --from-literal=stocks='AAPL,MSFT'`
+
 
 ## leaf-status
 
