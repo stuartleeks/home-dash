@@ -11,7 +11,7 @@ def get_message(date_value: date | None):
             messages = json.load(f)
 
         if not date_value:
-            date_value = datetime.now().date
+            date_value = datetime.now().date()
         date_string = date_value.strftime("%Y-%m-%d")
         if date_string in messages:
             return messages[date_string]

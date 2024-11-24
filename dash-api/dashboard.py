@@ -54,7 +54,7 @@ def get_dashboard_data():
     dashboard_data = DashboardData(
         leaf=leaf_data,
         date_string=datetime.now().strftime("%A, %d %B %Y"),
-        message=get_message(),
+        message=get_message(datetime.now().date()),
         weather=weather,
         # stocks=stock_data,
         pistat0=pistat0,
