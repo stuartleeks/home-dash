@@ -263,10 +263,12 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
             )
 
             current_y += wind_offset
+            wind_speed_text = f"{weather.wind_speed_mph:.0f}" if weather.wind_speed_mph else "n/a"
+            wind_gust_text = f"{weather.wind_gust_mph:.0f}" if weather.wind_gust_mph else "n/a"
             draw_centred(
                 draw,
                 (weather_left + weather_width / 2, current_y),
-                f"{weather.wind_speed_mph:.0f} mph ({weather.wind_gust_mph:.0f} mph gusts)",
+                f"{wind_speed_text} mph ({wind_gust_text} mph gusts)",
                 font=weather_font_description,
             )
             weather_left += weather_width + weather_x_offset
