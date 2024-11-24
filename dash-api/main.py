@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import logging
 import os
 import pathlib
@@ -20,6 +20,7 @@ sys.path.append(str(parent_path.absolute().parent))
 from . import config
 from .leaf import get_leaf_summary
 from .dashboard import generate_dashboard_image, get_dashboard_data, get_image_hash
+from .messages import get_message, set_message
 from .temperature import get_all_temperature_data, update_temperature_data
 
 app = FastAPI()
@@ -105,6 +106,22 @@ def get_dashboard_image(request: Request):
         media_type="image/jpeg",
         headers={"ETag": str(image_hash), "mins-to-sleep": str(mins_to_sleep)},
     )
+
+@app.get("/messages/{date_value}")
+def api_get_message(date_value: str):
+    print("!!!!!!!!!!!!!!!!!!!")
+    print(date_value)
+    print(date_value.__class__)
+    return get_message(date_value=date.fromisoformat(date_value))
+
+
+class MessageSetRequest(BaseModel):
+    message: str
+
+@app.put("/messages/{date_value}")
+def api_set_message(date_value: str, data: MessageSetRequest):
+    set_message(date.fromisoformat(date_value), data.message)
+    return {"status": "ok"}
 
 @app.get("/temperature/{id}")
 def get_temperature(id: str):

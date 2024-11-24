@@ -13,7 +13,7 @@ from .leaf import LeafData, get_leaf_data
 from .messages import get_message
 from .stocks import StockData, get_stock_data
 from .temperature import TemperatureData, get_all_temperature_data
-from .weather import WeatherData, WeatherDataPoint, get_rounded_weather_data, get_weather_data
+from .weather import WeatherData, get_rounded_weather_data, get_weather_data
 
 
 def hash_data(data):
