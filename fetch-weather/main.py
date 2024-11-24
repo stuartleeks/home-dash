@@ -78,7 +78,6 @@ def get_current_weather() -> WeatherData:
     wind_speed_mph = wind_speed * miles_per_km
     wind_gust_mph = wind_gust * miles_per_km if wind_gust else None
 
-
     return WeatherData(
         time=time,
         description=description,
@@ -123,7 +122,8 @@ def get_weather_forecast() -> list[WeatherData]:
     url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lng}&appid={openweather_api_key}&units=metric"
     response = requests.get(url)
     if response.status_code != 200:
-        print(f"ERROR: OpenWeather API (forecast) returned {response.status_code}")
+        print(
+            f"ERROR: OpenWeather API (forecast) returned {response.status_code}")
         exit(1)
 
     list = response.json()["list"]
@@ -132,7 +132,10 @@ def get_weather_forecast() -> list[WeatherData]:
 
 weather_data = get_weather_forecast()
 
-summary = {"forecast": [asdict(w) for w in weather_data]}
-print(summary)
+summary = {
+    "current": asdict(get_current_weather()),
+    "forecast": [asdict(w) for w in weather_data],
+}
+# print(summary)
 
-json.dump(summary, open(output_file, "w"))
+json.dump(summary, open(output_file, "w"), indent=2)

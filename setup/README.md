@@ -42,7 +42,14 @@ Create a k8s secret for the stock service credentials:
 
 ## leaf-status
 
-To test the cronjob, create a job derived from it: `kubectl create job --from=cronjob/leaf-status leaf-status-test`
+To test the cronjob, create a job derived from it:
+
+```bash
+
+kubectl create job --from=cronjob/leaf-status leaf-status-test
+kubectl create job --from=cronjob/fetch-weather fetch-weather-test
+
+```
 
 ## dash-api
 

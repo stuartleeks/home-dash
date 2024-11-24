@@ -1,0 +1,12 @@
+@lat={{$dotenv OPENWEATHER_LAT}}
+@lng={{$dotenv OPENWEATHER_LNG}}
+@api_key={{$dotenv OPENWEATHER_API_KEY}}
+
+###
+
+GET http://api.openweathermap.org/data/2.5/weather?lat={{lat}}&lon={{lng}}&appid={{api_key}}&units=metric
+
+###
+
+
+GET http://api.openweathermap.org/data/2.5/forecast?lat={{lat}}&lon={{lng}}&appid={{api_key}}&units=metric

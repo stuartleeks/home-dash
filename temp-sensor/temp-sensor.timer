@@ -1,0 +1,11 @@
+[Unit]
+Description=Run temp-sensor on a timer
+Requires=temp-sensor.service
+
+[Timer]
+Unit=temp-sensor.service
+OnStartupSec=5m
+OnUnitInactiveSec=5m
+
+[Install]
+WantedBy=timers.target

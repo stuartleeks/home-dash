@@ -28,7 +28,8 @@ if not stocks_api_key:
 stocks = [s.strip() for s in os.getenv("STOCKS").split(",")]
 
 # stock_url_param=
-url = f"https://api.stockdata.org/v1/data/quote?symbols={','.join(stocks)}&api_token={stocks_api_key}"
+# url = f"https://api.stockdata.org/v1/data/quote?symbols={','.join(stocks)}&api_token={stocks_api_key}"
+url = f"https://api.twelvedata.com/price?symbol={','.join(stocks)}&apikey={stocks_api_key}"
 
 response = requests.get(url)
 if response.status_code != 200:
@@ -43,7 +44,8 @@ for stock in response_json["data"]:
     stock_results.append({
         "symbol": stock["ticker"],
         "price": stock["price"],
-        "currency": stock["currency"],
+        # "currency": stock["currency"],
+        "currency": "USD",
     })
 
 result = {

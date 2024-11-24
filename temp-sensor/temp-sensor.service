@@ -1,0 +1,10 @@
+[Unit]
+Description=Run temperature sensor and send to dash api
+Wants=temp-sensor.timer
+
+[Service]
+ExecStart=/home/pi/source/home-dash/temp-sensor/run-app.sh
+WorkingDirectory=/home/pi/source/home-dash/temp-sensor
+
+[Install]
+WantedBy=multi-user.target

@@ -3,7 +3,7 @@ kind: CronJob
 metadata:
   name: leaf-status
 spec:
-  schedule: "0/15 * * * *"
+  schedule: "0/10 * * * *"
   successfulJobsHistoryLimit: 1
   jobTemplate:
     spec:

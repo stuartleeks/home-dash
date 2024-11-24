@@ -22,3 +22,8 @@ update-pibell-0: rsync-pibell-0
 	@echo "*** applying k8s manifests"
 	@kubectl apply -f deploy
 	@kubectl delete pod --selector app=dash-api # restart pod to apply changes
+
+
+rsync-temp-sensor: 
+	@echo "*** rsyncing to pistat-0"
+	@rsync -r . pi@pistat-0.lan:/home/pi/source/home-dash
