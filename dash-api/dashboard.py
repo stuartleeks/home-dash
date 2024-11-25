@@ -23,6 +23,10 @@ def hash_data(data):
     data_hash = hash(data_string)
     return data_hash
 
+@dataclass
+class Action:
+    id: str
+    display_text: str
 
 @dataclass
 class DashboardData:
@@ -32,6 +36,7 @@ class DashboardData:
     weather: WeatherData | None
     # stocks: list[StockData]
     pistat0: TemperatureData
+    actions: list[Action] = None
 
 
 def get_dashboard_data():
@@ -58,6 +63,9 @@ def get_dashboard_data():
         weather=weather,
         # stocks=stock_data,
         pistat0=pistat0,
+        actions=[
+            Action(id="refresh", display_text="Refresh"),
+        ]
     )
 
     return dashboard_data
@@ -132,9 +140,18 @@ def generate_dashboard_image(dashboard_data: DashboardData):
     #     )
     #     left += 250
 
-    # draw lines for buttons
-    for x in [80, 240, 400, 560, 720]:
+    # draw lines and text for buttons
+    action_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 15)
+    for i, x in enumerate([80, 240, 400, 560, 720]):
         draw.line((x, 460, x, 490), fill=(0, 0, 0))
+        if dashboard_data.actions and len(dashboard_data.actions) > i:
+            action = dashboard_data.actions[i]
+            draw_centred(
+                draw,
+                (x + 5, 440),
+                action.display_text,
+                font=action_font,
+            )
 
     message_font_size = 25
     message = dashboard_data.message
