@@ -13,6 +13,7 @@ class WeatherDataPoint:
     icon_path: str
     wind_speed_mph: float
     wind_gust_mph: float | None
+    humidity: float | None
 
 @dataclass
 class WeatherData:
@@ -52,4 +53,5 @@ def get_rounded_weather_data(weather_data: WeatherDataPoint) -> WeatherDataPoint
         wind_gust_mph=(
             round(weather_data.wind_gust_mph) if weather_data.wind_gust_mph else None
         ),
+        humidity=round(weather_data.humidity) if weather_data.humidity else None,
     )

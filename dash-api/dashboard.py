@@ -215,7 +215,7 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                     "fonts/FiraCode-Regular.ttf", 30
                 )
                 weather_font_temp_feels_like = ImageFont.truetype(
-                    "fonts/FiraCode-Regular.ttf", 20
+                    "fonts/FiraCode-Regular.ttf", 15
                 )
                 weather_font_description = ImageFont.truetype(
                     "fonts/FiraCode-Regular.ttf", 20
@@ -234,7 +234,7 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                     "fonts/FiraCode-Regular.ttf", 25
                 )
                 weather_font_temp_feels_like = ImageFont.truetype(
-                    "fonts/FiraCode-Regular.ttf", 15
+                    "fonts/FiraCode-Regular.ttf", 12.5
                 )
                 weather_font_description = ImageFont.truetype(
                     "fonts/FiraCode-Regular.ttf", 15
@@ -266,7 +266,7 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
             current_y += feels_like_offset
             draw.text(
                 (weather_left + weather_icon.width, current_y),
-                f"({weather.feels_like:.0f}°C)",
+                f"{weather.feels_like:.0f}°C, {weather.humidity}%",
                 fill=(0, 0, 0),
                 font=weather_font_temp_feels_like,
             )
