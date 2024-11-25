@@ -1,5 +1,5 @@
-python-dotenv
-FastAPI
-Pillow
-uvicorn[standard]
-azure-monitor-opentelemetry
+python-dotenv==1.0.1
+FastAPI==0.115.5
+Pillow==11.0.0
+uvicorn[standard]==0.32.1
+azure-monitor-opentelemetry==1.6.4
