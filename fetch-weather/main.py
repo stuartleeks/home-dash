@@ -54,6 +54,7 @@ class WeatherData:
     icon_path: str
     wind_speed_mph: float
     wind_gust_mph: float | None
+    humidity: float | None
 
 
 def get_current_weather() -> WeatherData:
@@ -69,6 +70,7 @@ def get_current_weather() -> WeatherData:
     icon_name = weather["weather"][0]["icon"]
     temp = weather["main"]["temp"]
     feels_like = weather["main"]["feels_like"]
+    humidity = weather["main"]["humidity"]
 
     icon_path = download_icon(icon_name)
 
@@ -86,6 +88,7 @@ def get_current_weather() -> WeatherData:
         icon_path=icon_path,
         wind_speed_mph=wind_speed_mph,
         wind_gust_mph=wind_gust_mph,
+        humidity=humidity,
     )
 
 
@@ -98,6 +101,7 @@ def parse_forecast_data(forecast: dict) -> WeatherData:
     icon_name = forecast["weather"][0]["icon"]
     temp = forecast["main"]["temp"]
     feels_like = forecast["main"]["feels_like"]
+    humidity = forecast["main"]["humidity"]
 
     wind_speed = forecast["wind"]["speed"]
     wind_gust = forecast["wind"].get("gust")
@@ -115,6 +119,7 @@ def parse_forecast_data(forecast: dict) -> WeatherData:
         icon_path=icon_path,
         wind_speed_mph=wind_speed_mph,
         wind_gust_mph=wind_gust_mph,
+        humidity=humidity,
     )
 
 
