@@ -120,7 +120,7 @@ def generate_dashboard_image(dashboard_data: DashboardData):
         temp_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
         draw.text(
             (temp_left, temp_top),
-            f"Temperature (pistat-0): {dashboard_data.pistat0.temperature}°C",
+            f"pistat-0: {dashboard_data.pistat0.temperature}°C ({dashboard_data.pistat0.humidity}%)",
             fill=(0, 0, 0),
             font=temp_font,
         )
