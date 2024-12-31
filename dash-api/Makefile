@@ -5,4 +5,7 @@
 # 	 ssh pi@pibell-0.lan "cd source/home-dash/ &&  docker build -t home-dash . && sudo systemctl restart home-dash.service && docker image prune -f && curl http://localhost:8000"
 
 run:
-	uvicorn main:app --reload
+	uvicorn main:app --reload --host 0.0.0.0
+
+requirements:
+	pip install -r requirements.txt

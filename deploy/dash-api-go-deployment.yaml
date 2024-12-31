@@ -1,44 +1,37 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dash-api
+  name: dash-api-go
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: dash-api
+      app: dash-api-go
   template:
     metadata:
       labels:
-        app: dash-api
+        app: dash-api-go
     spec:
       containers:
       - name: api
-        image: pibell-0.lan:5000/dash-api:latest
+        image: pibell-0.lan:5000/dash-api-go:latest
         imagePullPolicy: Always
         ports:
-        - containerPort: 8000
+        - containerPort: 8080
         volumeMounts:
         - name: dashboard-volume
           mountPath: /mnt/dashboard-info
-        - name: message-file
-          mountPath: /mnt/dashboard-messages.json
-          readOnly: true
         env:
         - name: DASHBOARD_INPUT_DIR
           value: /mnt/dashboard-info
         - name: MESSAGES_FILE
-          value: /mnt/dashboard-messages.json
-        - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+          value: /mnt/dashboard-info/dashboard-messages.json
+        - name: APPLICATIONINSIGHTS_INSTRUMENTATION_KEY
           valueFrom:
             secretKeyRef:
-              name: dash-api-app-insights
-              key: connection_string
+              name: dash-api-app-insights-key
+              key: instrumentation_key
       volumes:
         - name: dashboard-volume
           persistentVolumeClaim:
             claimName: dashboard-pvc
-        - name: message-file
-          hostPath:
-            path: /home/pi/dashboard-info/messages.json
-            type: File

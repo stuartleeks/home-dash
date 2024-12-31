@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: dash-api-go-service
+  namespace: default
+spec:
+  selector:
+    app: dash-api-go
+  type: LoadBalancer
+  ports:
+    - name: docker-port
+      protocol: TCP
+      port: 8000
+      targetPort: 8080

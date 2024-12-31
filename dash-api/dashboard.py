@@ -3,12 +3,13 @@ import json
 from io import BytesIO
 import itertools
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 from dataclasses import asdict, dataclass, is_dataclass
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
 
+from .cache import Cache, cache_for
 from .leaf import LeafData, get_leaf_data
 from .messages import get_message
 from .stocks import StockData, get_stock_data
@@ -37,16 +38,22 @@ class DashboardData:
     # stocks: list[StockData]
     pistat0: TemperatureData
     actions: list[Action] = None
+    generated_date: datetime= None
 
+@dataclass
+class TemperatureReading:
+    temperature: float
+    humidity: float
+
+# @dataclass
+# class TemperatureData:
+#     pistat0 : TemperatureReading
 
 def get_dashboard_data():
     leaf_data = get_leaf_data()
     # stock_data = get_stock_data()
 
-    pistat0 = get_all_temperature_data().get("pistat-0", None)
-    if pistat0:
-        pistat0.temperature = round(pistat0.temperature, 1)
-        pistat0.humidity = round(pistat0.humidity, 1)
+    pistat0 = get_temperature_data()
 
     weather = get_weather_data()
     if weather:
@@ -65,10 +72,19 @@ def get_dashboard_data():
         pistat0=pistat0,
         actions=[
             Action(id="refresh", display_text="Refresh"),
-        ]
+        ],
+        generated_date=datetime.now(timezone.utc),
     )
 
     return dashboard_data
+
+@cache_for(ttl=15*60) # only update every 15 minutes in dashboard
+def get_temperature_data(skip_cache: bool = False):
+    pistat0 = get_all_temperature_data().get("pistat-0", None)
+    if pistat0:
+        pistat0.temperature = round(pistat0.temperature, 1)
+        pistat0.humidity = round(pistat0.humidity, 1)
+    return pistat0
 
 
 def yes_no(value: bool):
@@ -105,25 +121,14 @@ def generate_dashboard_image(dashboard_data: DashboardData):
     image = Image.new(mode="RGBA", size=(800, 480), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
 
-    message_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
-
     draw_heading(image, draw, dashboard_data)
 
     draw_leaf_info(image, draw, dashboard_data.leaf)
 
     draw_weather(image, draw, dashboard_data.weather,
-                 weather_left=30, weather_top=140)
+                 weather_left=30, weather_top=130)
     
-    if dashboard_data.pistat0 is not None:
-        temp_top = 340
-        temp_left = 30
-        temp_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
-        draw.text(
-            (temp_left, temp_top),
-            f"pistat-0: {dashboard_data.pistat0.temperature}°C ({dashboard_data.pistat0.humidity}%)",
-            fill=(0, 0, 0),
-            font=temp_font,
-        )
+    draw_pistat(dashboard_data, draw, left=330, top=275)
 
     # stock_left = 30
     # stock_top = 340
@@ -140,12 +145,23 @@ def generate_dashboard_image(dashboard_data: DashboardData):
     #     )
     #     left += 250
 
+    draw_actions(dashboard_data.actions, dashboard_data.message, image, draw)
+
+    # handle the alpha channel (needed for PNGs from OpenWeatherMap)
+    image = pure_pil_alpha_to_color_v2(image)
+
+    image_buf = BytesIO()
+    image.save(image_buf, "JPEG")
+    image_buf.seek(0)
+    return image_buf
+
+def draw_actions(actions: list[Action], message : str, image: Image, draw: ImageDraw):
     # draw lines and text for buttons
     action_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 15)
     for i, x in enumerate([80, 240, 400, 560, 720]):
         draw.line((x, 460, x, 490), fill=(0, 0, 0))
-        if dashboard_data.actions and len(dashboard_data.actions) > i:
-            action = dashboard_data.actions[i]
+        if actions and len(actions) > i:
+            action = actions[i]
             draw_centred(
                 draw,
                 (x + 5, 440),
@@ -154,7 +170,6 @@ def generate_dashboard_image(dashboard_data: DashboardData):
             )
 
     message_font_size = 25
-    message = dashboard_data.message
     while message_font_size > 10:
         message_font = ImageFont.truetype(
             "fonts/FiraCode-Regular.ttf", message_font_size
@@ -167,13 +182,15 @@ def generate_dashboard_image(dashboard_data: DashboardData):
             break
         message_font_size -= 1
 
-    # handle the alpha channel (needed for PNGs from OpenWeatherMap)
-    image = pure_pil_alpha_to_color_v2(image)
-
-    image_buf = BytesIO()
-    image.save(image_buf, "JPEG")
-    image_buf.seek(0)
-    return image_buf
+def draw_pistat(dashboard_data: DashboardData, draw: ImageDraw, left: int, top: int):
+    if dashboard_data.pistat0 is not None:
+        temp_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 15)
+        draw.text(
+            (left, top),
+            f"pistat-0: {dashboard_data.pistat0.temperature}°C ({dashboard_data.pistat0.humidity}%)",
+            fill=(0, 0, 0),
+            font=temp_font,
+        )
 
 
 def draw_centred(draw, xy, text, font):
@@ -215,7 +232,7 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                     "fonts/FiraCode-Regular.ttf", 30
                 )
                 weather_font_temp_feels_like = ImageFont.truetype(
-                    "fonts/FiraCode-Regular.ttf", 15
+                    "fonts/FiraCode-Regular.ttf", 20
                 )
                 weather_font_description = ImageFont.truetype(
                     "fonts/FiraCode-Regular.ttf", 20
@@ -224,8 +241,9 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                 weather_x_offset = 50
                 temp_offset = 35
                 feels_like_offset = 35
-                description_offset = 60
+                description_offset = 50
                 wind_offset = 25
+                image_offset = -5
             else:
                 weather_icon = weather_icon.resize((85, 85))
                 weather_font = ImageFont.truetype(
@@ -234,7 +252,7 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                     "fonts/FiraCode-Regular.ttf", 25
                 )
                 weather_font_temp_feels_like = ImageFont.truetype(
-                    "fonts/FiraCode-Regular.ttf", 12.5
+                    "fonts/FiraCode-Regular.ttf", 17.5
                 )
                 weather_font_description = ImageFont.truetype(
                     "fonts/FiraCode-Regular.ttf", 15
@@ -244,10 +262,11 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
                 temp_offset = 25
                 feels_like_offset = 35
                 description_offset = 30
-                wind_offset = 15
+                wind_offset = 20
+                image_offset = 5
 
             current_y = weather_top
-            image.paste(weather_icon, box=(weather_left, current_y + 5))
+            image.paste(weather_icon, box=(weather_left, current_y + image_offset))
             draw_centred(
                 draw,
                 (weather_left + (weather_width / 2), current_y),
@@ -292,8 +311,8 @@ def draw_weather(image, draw, weather, weather_left, weather_top):
 
 
 def draw_leaf_info(image: Image, image_draw: ImageDraw, leaf_info: LeafData):
-    info_main_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 35)
-    info_sub_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 20)
+    info_main_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 30)
+    info_sub_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 17.5)
 
     cruising_range_ac_off_miles = leaf_info.cruising_range_ac_off_miles
     cruising_range_ac_on_miles = leaf_info.cruising_range_ac_on_miles
@@ -311,16 +330,18 @@ def draw_leaf_info(image: Image, image_draw: ImageDraw, leaf_info: LeafData):
         font=info_sub_font,
     )
     leaf_image = Image.open(leaf_info.icon_path)
+    leaf_image = leaf_image.resize((70, 70))
     image.paste(leaf_image, box=(10, 40))
 
 
 def draw_heading(image: Image, draw: ImageDraw, dashboard_data):
+    heading_font_title = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 17.5)
     heading_font = ImageFont.truetype("fonts/FiraCode-Regular.ttf", 25)
 
     title = "Leeks Dashboard"
-    title_width = draw.textlength(title, font=heading_font)
+    title_width = draw.textlength(title, font=heading_font_title)
     title_x = (image.width / 2 - title_width) / 2
-    draw.text((title_x, 10), title, fill=(0, 0, 0), font=heading_font)
+    draw.text((title_x, 10), title, fill=(0, 0, 0), font=heading_font_title)
 
     date_text = dashboard_data.date_string
     date_width = draw.textlength(date_text, font=heading_font)

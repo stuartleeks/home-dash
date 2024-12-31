@@ -5,6 +5,21 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
+			"name": "dash-api-go",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/dash-api-go"
+		},
+		{
+			"name": "Python Debugger: api",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "uvicorn",
+			"cwd": "${workspaceFolder}/dash-api",
+			"args": ["main:app", "--reload"]
+		},
+		{
 			"name": "Python Debugger: leaf-status",
 			"type": "debugpy",
 			"request": "launch",
