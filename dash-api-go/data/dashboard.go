@@ -16,6 +16,16 @@ type DashboardData struct {
 	GeneratedAt time.Time
 }
 
+func (d *DashboardData) IsPiStatDataValid() bool {
+	if d.Pistat0 == nil {
+		return false
+	}
+	if d.GeneratedAt.Sub(time.Time(d.Pistat0.ReportedAt)) > 1*time.Hour {
+		return false
+	}
+	return true
+}
+
 const (
 	ACTION_REFRESH = "refresh"
 )

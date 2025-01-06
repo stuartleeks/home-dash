@@ -314,6 +314,9 @@ func checkForSignificantChange(oldData *data.DashboardData, newData *data.Dashbo
 	}
 
 	// Update if pistat0 has changed
+	if oldData.IsPiStatDataValid() != newData.IsPiStatDataValid() {
+		return "pistat0 validity has changed"
+	}
 	if math.Abs(float64(oldData.Pistat0.Temperature-newData.Pistat0.Temperature)) > 0.5 {
 		return "pistat0 temperature has changed"
 	}

@@ -46,8 +46,10 @@ func drawDashboardImage(dashboardData *data.DashboardData) (*gg.Context, error) 
 	if err := drawWeatherInfo(dc, dashboardData.WeatherData, 130, 30); err != nil {
 		return nil, err
 	}
-	if err := drawPistat(dc, dashboardData.Pistat0, 275, 330); err != nil {
-		return nil, err
+	if dashboardData.IsPiStatDataValid() {
+		if err := drawPistat(dc, dashboardData.Pistat0, 275, 330); err != nil {
+			return nil, err
+		}
 	}
 	if err := drawMessage(dc, dashboardData.Message); err != nil {
 		return nil, err
