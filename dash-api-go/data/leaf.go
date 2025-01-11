@@ -1,8 +1,8 @@
 package data
 
 type LeafData struct {
-	IsPluggedIn             bool    `json:"is_plugged_in"`
-	IsCharging              bool    `json:"is_charging"`
+	IsConnected             bool    `json:"is_connected"`
+	ChargingStatus          string  `json:"charging_status"`
 	CruisingRangeAcOffMiles float32 `json:"cruising_range_ac_off_miles"`
 	CruisingRangeAcOnMiles  float32 `json:"cruising_range_ac_on_miles"`
 	IconPath                string  `json:"icon_path"`
@@ -15,9 +15,9 @@ const (
 )
 
 func (leafData *LeafData) GetIconPath() string {
-	if leafData.IsCharging {
+	if leafData.ChargingStatus != "NOT_CHARGING" {
 		return LEAF_ICON_CHARGING
-	} else if leafData.IsPluggedIn {
+	} else if leafData.IsConnected {
 		return LEAF_ICON_PLUGGED_IN
 	} else {
 		return LEAF_ICON_NOT_PLUGGED_IN

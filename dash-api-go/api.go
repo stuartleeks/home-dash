@@ -298,11 +298,11 @@ func checkForSignificantChange(oldData *data.DashboardData, newData *data.Dashbo
 	}
 
 	// Update if charge state etc have changed
-	if oldData.LeafData.IsCharging != newData.LeafData.IsCharging {
-		return "isCharging has changed"
+	if oldData.LeafData.ChargingStatus != newData.LeafData.ChargingStatus {
+		return "ChargingStatus has changed"
 	}
-	if oldData.LeafData.IsPluggedIn != newData.LeafData.IsPluggedIn {
-		return "isPluggedIn has changed"
+	if oldData.LeafData.IsConnected != newData.LeafData.IsConnected {
+		return "IsConnected has changed"
 	}
 	if math.Abs(float64(oldData.LeafData.CruisingRangeAcOffMiles-newData.LeafData.CruisingRangeAcOffMiles)) > 3 {
 		return "cruisingRangeAcOffMiles has changed"

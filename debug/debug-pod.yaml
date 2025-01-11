@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug
+  labels:
+    app: debug
+spec:
+  containers:
+  - name: api
+    image: ubuntu:22.04
+    imagePullPolicy: Always
+    command: [ "/bin/bash", "-c", "--" ]
+    args: [ "while true; do sleep 30; done;" ]
+    ports:
+    - containerPort: 8080
+    volumeMounts:
+    - name: dashboard-volume
+      mountPath: /mnt/dashboard-info
+    env:
+    - name: DASHBOARD_INPUT_DIR
+      value: /mnt/dashboard-info
+    - name: MESSAGES_FILE
+      value: /mnt/dashboard-info/dashboard-messages.json
+    - name: APPLICATIONINSIGHTS_INSTRUMENTATION_KEY
+      valueFrom:
+        secretKeyRef:
+          name: dash-api-app-insights-key
+          key: instrumentation_key
+  volumes:
+    - name: dashboard-volume
+      persistentVolumeClaim:
+        claimName: dashboard-pvc
