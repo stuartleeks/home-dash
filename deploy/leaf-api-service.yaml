@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: dash-api
+  name: leaf-api
   namespace: default
 spec:
   selector:
-    app: dash-api-go
+    app: leaf-api
   type: LoadBalancer
   ports:
     - name: docker-port
       protocol: TCP
-      port: 8000
-      targetPort: 8080
+      port: 8002
+      targetPort: 8000

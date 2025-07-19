@@ -15,6 +15,10 @@ update-pibell-0: rsync-pibell-0
 	@#cd leaf-status && docker build -t pibell-0.lan:5000/leaf-status . && docker push pibell-0.lan:5000/leaf-status:latest
 	@ssh pi@pibell-0.lan "cd source/home-dash/leaf-status && docker build -t pibell-0.lan:5000/leaf-status . && docker push pibell-0.lan:5000/leaf-status:latest"
 
+	@echo "*** updating leaf-api docker image"
+	@#cd leaf-api && docker build -t pibell-0.lan:5000/leaf-api . && docker push pibell-0.lan:5000/leaf-api:latest
+	@ssh pi@pibell-0.lan "cd source/home-dash/leaf-api && docker build -t pibell-0.lan:5000/leaf-api . && docker push pibell-0.lan:5000/leaf-api:latest"
+
 	@echo "*** updating fetch-stocks docker image"
 	@#cd fetch-stocks && docker build -t pibell-0.lan:5000/fetch-stocks . && docker push pibell-0.lan:5000/fetch-stocks:latest
 	@ssh pi@pibell-0.lan "cd source/home-dash/fetch-stocks && docker build -t pibell-0.lan:5000/fetch-stocks . && docker push pibell-0.lan:5000/fetch-stocks:latest"
@@ -27,6 +31,7 @@ update-pibell-0: rsync-pibell-0
 	@kubectl apply -f deploy
 	@#kubectl delete pod --selector app=dash-api # restart pod to apply changes
 	@kubectl delete pod --selector app=dash-api-go # restart pod to apply changes
+	@kubectl delete pod --selector app=leaf-api # restart pod to apply changes
 
 
 rsync-temp-sensor: 

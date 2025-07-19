@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: leaf-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: leaf-api
+  template:
+    metadata:
+      labels:
+        app: leaf-api
+    spec:
+      containers:
+      - name: api
+        image: pibell-0.lan:5000/leaf-api:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8000
+        env:
+        - name: LEAF_REGION
+          value: NE # NNA=USA, NE=Europe, NCI=Canada, NMA=Austrailia, NML=Japan
+        - name: LEAF_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: leaf-creds
+              key: user
+        - name: LEAF_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: leaf-creds
+              key: password
