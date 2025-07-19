@@ -1,11 +1,37 @@
 package data
 
+import (
+	"fmt"
+	"time"
+)
+
+type UpdateDate time.Time
+
+const updatedAtFormat = "2006-01-02 15:04:05"
+
+func (u *UpdateDate) UnmarshalJSON(b []byte) error {
+	if len(b) < 2 || b[0] != '"' || b[len(b)-1] != '"' {
+		return fmt.Errorf("invalid time format: %s", b)
+	}
+	b = b[1 : len(b)-1]
+	t, err := time.Parse(updatedAtFormat, string(b))
+	if err != nil {
+		return err
+	}
+	*u = UpdateDate(t)
+	return nil
+}
+func (u UpdateDate) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + time.Time(u).Format(updatedAtFormat) + `"`), nil
+}
+
 type LeafData struct {
-	IsConnected             bool    `json:"is_connected"`
-	ChargingStatus          string  `json:"charging_status"`
-	CruisingRangeAcOffMiles float32 `json:"cruising_range_ac_off_miles"`
-	CruisingRangeAcOnMiles  float32 `json:"cruising_range_ac_on_miles"`
-	IconPath                string  `json:"icon_path"`
+	UpdateDate              UpdateDate `json:"update_date"`
+	IsConnected             bool       `json:"is_connected"`
+	ChargingStatus          string     `json:"charging_status"`
+	CruisingRangeAcOffMiles float32    `json:"cruising_range_ac_off_miles"`
+	CruisingRangeAcOnMiles  float32    `json:"cruising_range_ac_on_miles"`
+	IconPath                string     `json:"icon_path"`
 }
 
 const (

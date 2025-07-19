@@ -1,0 +1,19 @@
+@lat={{$dotenv METOFFICE_LAT}}
+@lng={{$dotenv METOFFICE_LNG}}
+@api_key={{$dotenv METOFFICE_API_KEY}}
+
+###
+
+GET https://data.hub.api.metoffice.gov.uk/sitespecific/v0/point/three-hourly?latitude={{lat}}&longitude={{lng}}&includeLocationName=true
+apikey: {{api_key}}
+Accept: application/json
+
+
+
+###
+
+
+http://datapoint.metoffice.gov.uk/public/data/val/wxfcs/all/xml/sitelist?res=3hourly&key={{api_key}}
+
+
+

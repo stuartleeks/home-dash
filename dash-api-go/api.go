@@ -298,6 +298,9 @@ func checkForSignificantChange(oldData *data.DashboardData, newData *data.Dashbo
 	}
 
 	// Update if charge state etc have changed
+	if oldData.IsLeafDataValid() != newData.IsLeafDataValid() {
+		return "leafData validity has changed"
+	}
 	if oldData.LeafData.ChargingStatus != newData.LeafData.ChargingStatus {
 		return "ChargingStatus has changed"
 	}

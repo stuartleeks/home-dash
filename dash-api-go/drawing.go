@@ -40,8 +40,10 @@ func drawDashboardImage(dashboardData *data.DashboardData) (*gg.Context, error) 
 	if err := drawImageHeading(dc, "Leeks Dashboard", dashboardData.DateString); err != nil {
 		return nil, err
 	}
-	if err := drawLeafInfo(dc, dashboardData.LeafData); err != nil {
-		return nil, err
+	if dashboardData.LeafData != nil {
+		if err := drawLeafInfo(dc, dashboardData.LeafData, !dashboardData.IsLeafDataValid()); err != nil {
+			return nil, err
+		}
 	}
 	if err := drawWeatherInfo(dc, dashboardData.WeatherData, 130, 30); err != nil {
 		return nil, err
@@ -78,18 +80,25 @@ func drawImageHeading(dc *gg.Context, text string, dateText string) error {
 	return nil
 }
 
-func drawLeafInfo(dc *gg.Context, leafData *data.LeafData) error {
+func drawLeafInfo(dc *gg.Context, leafData *data.LeafData, isStale bool) error {
 
 	if leafData == nil {
 		return nil
 	}
 
-	dc.SetHexColor("#000000")
+	if isStale {
+		dc.SetHexColor("#999999")
+	} else {
+		dc.SetHexColor("#000000")
+	}
 
 	if err := dc.LoadFontFace("fonts/FiraCode-Regular.ttf", 30); err != nil {
 		return err
 	}
 	text := fmt.Sprintf("Range: %0.0f miles", leafData.CruisingRangeAcOffMiles)
+	if isStale {
+		text += " (stale data)"
+	}
 	_, h := dc.MeasureString(text)
 	dc.DrawString(text, 110, 50+h)
 

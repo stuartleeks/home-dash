@@ -25,6 +25,15 @@ func (d *DashboardData) IsPiStatDataValid() bool {
 	}
 	return true
 }
+func (d *DashboardData) IsLeafDataValid() bool {
+	if d.LeafData == nil {
+		return false
+	}
+	if d.GeneratedAt.Sub(time.Time(d.LeafData.UpdateDate)) > 1*time.Hour {
+		return false
+	}
+	return true
+}
 
 const (
 	ACTION_REFRESH = "refresh"

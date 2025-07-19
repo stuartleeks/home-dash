@@ -33,7 +33,7 @@ print('Temperature', round_num(sensor.temperature), 'C')
 print('Humidity', round_num(sensor.relative_humidity), '%')
 
 # Send data to API
-resp = requests.put(f"{api_base_url}/temperature/{sensor_id}", json={
+resp = requests.put(f"{api_base_url}/temperatures/{sensor_id}", json={
     "temperature": sensor.temperature,
     "humidity": sensor.relative_humidity
 })
