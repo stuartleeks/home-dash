@@ -18,6 +18,9 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 8000
+        volumeMounts:
+        - name: dashboard-volume
+          mountPath: /mnt/dashboard-info
         env:
         - name: LEAF_REGION
           value: NE # NNA=USA, NE=Europe, NCI=Canada, NMA=Austrailia, NML=Japan
@@ -31,3 +34,9 @@ spec:
             secretKeyRef:
               name: leaf-creds
               key: password
+        - name: DASHBOARD_INPUT_DIR
+          value: /mnt/dashboard-info
+      volumes:
+        - name: dashboard-volume
+          persistentVolumeClaim:
+            claimName: dashboard-pvc

@@ -11,10 +11,6 @@ update-pibell-0: rsync-pibell-0
 	@#cd dash-api-go && docker build --platform linux/arm -t pibell-0.lan:5000/dash-api-go . && docker push pibell-0.lan:5000/dash-api-go:latest
 	@ssh pi@pibell-0.lan "cd source/home-dash/dash-api-go && docker build -t pibell-0.lan:5000/dash-api-go . && docker push pibell-0.lan:5000/dash-api-go:latest"
 
-	@echo "*** updating leaf-status docker image"
-	@#cd leaf-status && docker build -t pibell-0.lan:5000/leaf-status . && docker push pibell-0.lan:5000/leaf-status:latest
-	@ssh pi@pibell-0.lan "cd source/home-dash/leaf-status && docker build -t pibell-0.lan:5000/leaf-status . && docker push pibell-0.lan:5000/leaf-status:latest"
-
 	@echo "*** updating leaf-api docker image"
 	@#cd leaf-api && docker build -t pibell-0.lan:5000/leaf-api . && docker push pibell-0.lan:5000/leaf-api:latest
 	@ssh pi@pibell-0.lan "cd source/home-dash/leaf-api && docker build -t pibell-0.lan:5000/leaf-api . && docker push pibell-0.lan:5000/leaf-api:latest"

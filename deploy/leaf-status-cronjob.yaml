@@ -7,36 +7,14 @@ spec:
   successfulJobsHistoryLimit: 1
   jobTemplate:
     spec:
-      activeDeadlineSeconds: 120
+      activeDeadlineSeconds: 180
       template:
         spec:
           containers:
           - name: leaf-status
-            image: pibell-0.lan:5000/leaf-status:latest
+            image: curlimages/curl:8.15.0
             imagePullPolicy: Always
             command:
-            - python3
-            - /app/get-leaf-summary.py
-            volumeMounts:
-            - name: dashboard-volume
-              mountPath: /mnt/dashboard-info
-            env:
-            - name: LEAF_OUTPUT_FILE
-              value: /mnt/dashboard-info/leaf-summary.json
-            - name: LEAF_REGION
-              value: NE # NNA=USA, NE=Europe, NCI=Canada, NMA=Austrailia, NML=Japan
-            - name: LEAF_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: leaf-creds
-                  key: user
-            - name: LEAF_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: leaf-creds
-                  key: password
-          volumes:
-            - name: dashboard-volume
-              persistentVolumeClaim:
-                claimName: dashboard-pvc
+             - curl
+             - http://leaf-api:8002/status
           restartPolicy: OnFailure

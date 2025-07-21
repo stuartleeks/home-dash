@@ -1,4 +1,5 @@
 
+import asyncio
 import logging
 import os
 import sys
@@ -18,10 +19,13 @@ load_dotenv()
 logging.basicConfig(stream=sys.stdout, level=logging.INFO,
                     format='LEAF:%(asctime)s:%(levelname)s: %(message)s')
 
+logging.getLogger("pycarwings3").setLevel(logging.DEBUG)
+logging.getLogger("pycarwings3.pycarwings3").setLevel(logging.DEBUG)
 
 username = os.getenv("LEAF_USERNAME")
 password = os.getenv("LEAF_PASSWORD")
 region = os.getenv("LEAF_REGION")
+dashboard_input_dir = os.getenv("DASHBOARD_INPUT_DIR")
 
 if not username:
     logging.error("ERROR: LEAF_USERNAME not set")
@@ -31,6 +35,9 @@ if not password:
     sys.exit(1)
 if not region:
     logging.error("ERROR: LEAF_REGION not set")
+    sys.exit(1)
+if not dashboard_input_dir:
+    logging.error("ERROR: DASHBOARD_INPUT_DIR not set")
     sys.exit(1)
 
 
@@ -64,6 +71,7 @@ class LeafStatus(BaseModel):
     estimated_range: Optional[float] = None
     cruising_range_ac_off_miles: Optional[float] = None
     cruising_range_ac_on_miles: Optional[float] = None
+    is_hvac_running: Optional[bool] = None
 
 
 async def update_battery_status(leaf: pycarwings3.Leaf, wait_interval=1):
@@ -103,6 +111,11 @@ async def root():
 @app.get("/status", response_model=LeafStatus)
 async def get_status():
     """Get current Leaf vehicle status"""
+    if not dashboard_input_dir:
+        logging.error("DASHBOARD_INPUT_DIR not set")
+        raise HTTPException(status_code=500, detail="DASHBOARD_INPUT_DIR not set")
+
+
     try:
         async with get_leaf_session() as session:
             logging.info("Getting leaf...")
@@ -130,8 +143,9 @@ async def get_status():
 
             miles_per_kWh = get_miles_per_kWh(
                 electric_mileage, electric_cost_scale)
-            
-            
+
+            hvac_status = await leaf.get_latest_hvac_status()
+
             cruising_range_ac_off_km = leaf_info.cruising_range_ac_off_km
             cruising_range_ac_on_km = leaf_info.cruising_range_ac_on_km
             cruising_range_ac_on_miles = cruising_range_ac_on_km * miles_per_km if cruising_range_ac_on_km else None
@@ -159,10 +173,21 @@ async def get_status():
                 if miles_per_kWh
                 else None,
                 cruising_range_ac_off_miles=cruising_range_ac_off_miles,
-                cruising_range_ac_on_miles=cruising_range_ac_on_miles
+                cruising_range_ac_on_miles=cruising_range_ac_on_miles,
+                is_hvac_running = hvac_status.is_hvac_running if hvac_status else None,
             )
+
+            status_json = status.model_dump_json(indent=2)
+            logging.info(f"Got leaf status successfully {status_json}")
+            # Save to file
+            output_file = os.path.join(dashboard_input_dir, "leaf-summary.json")
+            with open(output_file, "w") as f:
+                f.write(status_json)
+            logging.info(f"Leaf status saved to {output_file}")
+
             return status
     except Exception as e:
+        logging.error(f"Failed to get leaf status: {str(e)}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get leaf status: {str(e)}")
 
@@ -174,8 +199,10 @@ async def start_climate_control():
         async with get_leaf_session() as session:
             leaf: pycarwings3.Leaf = await session.get_leaf()
             logging.info("Starting climate control...")
-            await leaf.start_climate_control() # TOOO - use key to call check result
-            logging.info("Climate control started successfully")
+            result_key = await leaf.start_climate_control() # TOOO - use key to call check result
+            logging.info("Climate control start sent")
+            result = await leaf.get_start_climate_control_result(result_key=result_key)
+            logging.info(f"Climate control start result: {result}")
             return {"message": "Climate control started"}
     except Exception as e:
         raise HTTPException(
@@ -189,8 +216,13 @@ async def stop_climate_control():
         async with get_leaf_session() as session:
             leaf: pycarwings3.Leaf = await session.get_leaf()
             logging.info("Stopping climate control...")
-            await leaf.stop_climate_control()
-            logging.info("Climate control stopped successfully")
+            result_key = await leaf.stop_climate_control()
+            logging.info("Climate control stop sent")
+            
+            await asyncio.sleep(10)
+            logging.info("Checking climate control stop result...")
+            result = await leaf.get_stop_climate_control_result(result_key=result_key)
+            logging.info(f"Climate control stop result: {result}")
             return {"message": "Climate control stopped"}
     except Exception as e:
         raise HTTPException(

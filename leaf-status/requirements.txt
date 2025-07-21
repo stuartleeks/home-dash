@@ -1,2 +1,0 @@
-pycarwings3==0.7.14
-python-dotenv
